@@ -44,6 +44,7 @@ do
     cat Dockerfile | sed "s/^FROM.*\$/FROM $image/" | QEMU_ARCH=$arch docker build -t $REPO_NAME/$name:$arch -f - . && \
         docker push $REPO_NAME/$name:$arch
     platforms+=("linux/$arch")
+    rm "$name"
 done
 cd $cur
 platforms_str=`join_by , "${platforms[@]}"`
