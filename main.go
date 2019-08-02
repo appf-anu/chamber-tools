@@ -7,7 +7,35 @@ import (
 	"os"
 	"strings"
 	"time"
+	"reflect"
+	"fmt"
 )
+
+
+type Indices struct{
+	DatetimeIdx int `header:"datetime"`
+	SimDatetimeIdx int `header:"datetime-sim"`
+	TemperatureIdx int `header:"temperature"`
+	HumidityIdx int `header:"humidity"`
+	Light1Idx int `header:light1`
+	Light2Idx int `header:light2`
+	CO2Idx int `header:"co2"`
+	TotalSolarIdx int `header:"totalsolar"`
+	ChannelsIdx []int `header:"channel-%d"`
+}
+
+
+var IndexConfig = &Indices{
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	[]int{},
+}
 
 var (
 	ctx        fuzzytime.Context
@@ -59,19 +87,95 @@ func Clamp(value, minimum, maximum int) int {
 	return Min(Max(value, minimum), maximum)
 }
 
+
+func indexInSlice(a string, list []string) int {
+	for i, b := range list {
+		if strings.Trim(b, "\t ,\n") == a {
+			return i
+		}
+	}
+	return -1
+}
+
+func GetIndices(errLog *log.Logger, headerLine []string) {
+	// initialize as invalid/empty
+
+	v := reflect.ValueOf(IndexConfig)
+	t := reflect.TypeOf(IndexConfig)
+	for i := 0; i < t.Elem().NumField(); i++ {
+        field := v.Elem().Field(i)
+        header, ok := t.Elem().Field(i).Tag.Lookup("header")
+        header = strings.Trim(header, ", \n\t")
+        if !ok {
+        	continue
+		}
+
+		if field.CanSet() {
+			errLog.Println(header)
+			if field.Kind() == reflect.Int{
+				if idx := indexInSlice(header, headerLine); idx >= 0{
+					field.SetInt(int64(idx))
+				}
+			}
+			if field.Kind() == reflect.Slice {
+				cIdx := 1 // start at channel 1
+				for {
+					cHeader := fmt.Sprintf(header, cIdx)
+					if idx := indexInSlice(cHeader, headerLine); idx >= 0 {
+						iVal := reflect.ValueOf(int(idx))
+						field.Set(reflect.Append(field, iVal))
+						cIdx++
+						continue
+					}
+					break
+				}
+			}
+		}
+    }
+}
+
+func InitIndexConfig(errLog *log.Logger, conditionsPath string ){
+
+	file, err := os.Open(conditionsPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Scan()
+	line := scanner.Text()
+	lineSplit := strings.Split(line, ",")
+	errLog.Println(lineSplit)
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	GetIndices(errLog, lineSplit)
+
+	if IndexConfig.DatetimeIdx < 0 {
+		errLog.Println("No datetime header in conditions file")
+		os.Exit(1)
+	}
+}
+
 // RunConditions runs conditions for a file
 func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, conditionsPath string, loopFirstDay bool) {
+
 	errLog.Printf("running conditions file: %s\n", conditionsPath)
 	file, err := os.Open(conditionsPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
+
+
 	scanner := bufio.NewScanner(file)
 	idx := 0
 	var lastTime time.Time
 	var lastLineSplit []string
 	firstRun := true
+
 
 	if loopFirstDay {
 
@@ -79,12 +183,13 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 		data := make([]string, 0)
 		for scanner.Scan() {
 			line := scanner.Text()
+			lineSplit := strings.Split(line, ",")
 			if idx == 0 {
 				idx++
 				continue
 			}
-			lineSplit := strings.Split(line, ",")
-			timeStr := lineSplit[0]
+
+			timeStr := lineSplit[IndexConfig.DatetimeIdx]
 			theTime, err := parseDateTime(timeStr, errLog)
 			if err != nil {
 				errLog.Println(err)
@@ -152,13 +257,14 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		lineSplit := strings.Split(line, ",")
 		if idx == 0 {
 			idx++
 			continue
 		}
 
-		lineSplit := strings.Split(line, ",")
-		timeStr := lineSplit[0]
+		timeStr := lineSplit[IndexConfig.DatetimeIdx]
 		theTime, err := parseDateTime(timeStr, errLog)
 		if err != nil {
 			errLog.Println(err)
