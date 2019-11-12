@@ -17,8 +17,8 @@ type Indices struct{
 	SimDatetimeIdx int `header:"datetime-sim"`
 	TemperatureIdx int `header:"temperature"`
 	HumidityIdx int `header:"humidity"`
-	Light1Idx int `header:light1`
-	Light2Idx int `header:light2`
+	Light1Idx int `header:"light1"`
+	Light2Idx int `header:"light2"`
 	CO2Idx int `header:"co2"`
 	TotalSolarIdx int `header:"totalsolar"`
 	ChannelsIdx []int `header:"channel-%d"`
