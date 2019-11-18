@@ -111,7 +111,6 @@ func GetIndices(errLog *log.Logger, headerLine []string) {
 		}
 
 		if field.CanSet() {
-			errLog.Println(header)
 			if field.Kind() == reflect.Int{
 				if idx := indexInSlice(header, headerLine); idx >= 0{
 					field.SetInt(int64(idx))
@@ -214,19 +213,18 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 					errLog.Println(err)
 					continue
 				}
+
 				now := time.Now()
 				nowDate := now.Truncate(time.Hour * 24)
 				firstDate := firstTime.Truncate(time.Hour * 24)
 				daysDifference := nowDate.Sub(firstDate) - (time.Hour*24)
 
 				theTime = theTime.Add(daysDifference)
-
 				if theTime.Before(time.Now()) {
 					lastLineSplit = lineSplit
 					lastTime = theTime
 					continue
 				}
-				errLog.Println(theTime)
 
 				if firstRun {
 					firstRun = false
