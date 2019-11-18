@@ -23,7 +23,7 @@ platforms=()
 for arch in $architectures
 do
     echo "Compiling for $arch"
-    CGO_ENABLED=0; GOARCH=$arch; GOARM=6; go build -a -o "$name"  &
+    CGO_ENABLED=0 GOARCH=$arch GOARM=6 go build -a -o "$name"  &
     PID=$!
     i=1
     sp="/-\|"
