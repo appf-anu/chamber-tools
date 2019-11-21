@@ -2,26 +2,26 @@ package chamber_tools
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/bcampbell/fuzzytime"
 	"log"
 	"os"
+	"reflect"
 	"strings"
 	"time"
-	"reflect"
-	"fmt"
 )
 
 // Indices type to store the column indexes of columns with specific headers denoted by "header" tags
-type Indices struct{
-	DatetimeIdx int `header:"datetime"`
-	SimDatetimeIdx int `header:"datetime-sim"`
-	TemperatureIdx int `header:"temperature"`
-	HumidityIdx int `header:"humidity"`
-	Light1Idx int `header:"light1"`
-	Light2Idx int `header:"light2"`
-	CO2Idx int `header:"co2"`
-	TotalSolarIdx int `header:"totalsolar"`
-	ChannelsIdx []int `header:"channel-%d"`
+type Indices struct {
+	DatetimeIdx    int   `header:"datetime"`
+	SimDatetimeIdx int   `header:"datetime-sim"`
+	TemperatureIdx int   `header:"temperature"`
+	HumidityIdx    int   `header:"humidity"`
+	Light1Idx      int   `header:"light1"`
+	Light2Idx      int   `header:"light2"`
+	CO2Idx         int   `header:"co2"`
+	TotalSolarIdx  int   `header:"totalsolar"`
+	ChannelsIdx    []int `header:"channel-%d"`
 }
 
 // IndexConfig package level struct to store indices. -1 means it doesnt exist.
@@ -38,7 +38,7 @@ var IndexConfig = &Indices{
 }
 
 var (
-	ctx        fuzzytime.Context
+	ctx fuzzytime.Context
 	// ZoneName exported so that packages that use this package can refer to the current timezone
 	ZoneName   string
 	zoneOffset int
@@ -88,7 +88,6 @@ func Clamp(value, minimum, maximum int) int {
 	return Min(Max(value, minimum), maximum)
 }
 
-
 func indexInSlice(a string, list []string) int {
 	for i, b := range list {
 		if strings.Trim(b, "\t ,\n") == a {
@@ -104,16 +103,16 @@ func getIndices(errLog *log.Logger, headerLine []string) {
 	v := reflect.ValueOf(IndexConfig)
 	t := reflect.TypeOf(IndexConfig)
 	for i := 0; i < t.Elem().NumField(); i++ {
-        field := v.Elem().Field(i)
-        header, ok := t.Elem().Field(i).Tag.Lookup("header")
-        header = strings.Trim(header, ", \n\t")
-        if !ok {
-        	continue
+		field := v.Elem().Field(i)
+		header, ok := t.Elem().Field(i).Tag.Lookup("header")
+		header = strings.Trim(header, ", \n\t")
+		if !ok {
+			continue
 		}
 
 		if field.CanSet() {
-			if field.Kind() == reflect.Int{
-				if idx := indexInSlice(header, headerLine); idx >= 0{
+			if field.Kind() == reflect.Int {
+				if idx := indexInSlice(header, headerLine); idx >= 0 {
 					field.SetInt(int64(idx))
 				}
 			}
@@ -131,11 +130,11 @@ func getIndices(errLog *log.Logger, headerLine []string) {
 				}
 			}
 		}
-    }
+	}
 }
 
 // InitIndexConfig populates the chamber_tools.IndexConfig struct from a header line
-func InitIndexConfig(errLog *log.Logger, conditionsPath string ){
+func InitIndexConfig(errLog *log.Logger, conditionsPath string) {
 
 	file, err := os.Open(conditionsPath)
 	if err != nil {
@@ -170,13 +169,11 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 	}
 	defer file.Close()
 
-
 	scanner := bufio.NewScanner(file)
 	idx := 0
 	var lastTime time.Time
 	var lastLineSplit []string
 	firstRun := true
-
 
 	if loopFirstDay {
 
@@ -202,7 +199,7 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 			if theTime.After(firstTime.Add(time.Hour * 24)) {
 				break
 			}
-			data = append(data, line)	
+			data = append(data, line)
 		}
 
 		errLog.Printf("looping over %d timepoints", len(data))
@@ -221,7 +218,7 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 				nowDate := now.Truncate(time.Hour * 24)
 				// get the 00:00 value for the first time in the dataset
 				firstDate := firstTime.Truncate(time.Hour * 24)
-				// get the days difference. 
+				// get the days difference.
 				daysDifference := nowDate.Sub(firstDate)
 
 				// adjust theTime so that we can sleep until it later.
