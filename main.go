@@ -151,7 +151,7 @@ func InitIndexConfig(errLog *log.Logger, conditionsPath string) {
 		log.Fatal(err)
 	}
 
-	GetIndices(errLog, lineSplit)
+	getIndices(errLog, lineSplit)
 
 	if IndexConfig.DatetimeIdx < 0 {
 		errLog.Println("No datetime header in conditions file")
