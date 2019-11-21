@@ -9,7 +9,7 @@ start = start.replace(microsecond=0, second=0, minute=0, hour=0)
 channels = [1, 2, 3, 4, 5, 6, 7, 8]
 maxValue = 100
 
-end = start + datetime.timedelta(days=2)
+end = start + datetime.timedelta(days=365)
 interval = datetime.timedelta(minutes=1)
 # daylength = datetime.timedelta(hours=3)
 

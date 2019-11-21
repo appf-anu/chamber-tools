@@ -11,7 +11,7 @@ import (
 	"fmt"
 )
 
-
+// Indices type to store the column indexes of columns with specific headers denoted by "header" tags
 type Indices struct{
 	DatetimeIdx int `header:"datetime"`
 	SimDatetimeIdx int `header:"datetime-sim"`
@@ -24,7 +24,7 @@ type Indices struct{
 	ChannelsIdx []int `header:"channel-%d"`
 }
 
-
+// IndexConfig package level struct to store indices. -1 means it doesnt exist.
 var IndexConfig = &Indices{
 	-1,
 	-1,
@@ -39,6 +39,7 @@ var IndexConfig = &Indices{
 
 var (
 	ctx        fuzzytime.Context
+	// ZoneName exported so that packages that use this package can refer to the current timezone
 	ZoneName   string
 	zoneOffset int
 )
@@ -82,7 +83,7 @@ func Max(value, limit int) int {
 	return limit
 }
 
-// MinMax clamps a value to between a minimum and maximum value
+// Clamp clamps a value to between a minimum and maximum value
 func Clamp(value, minimum, maximum int) int {
 	return Min(Max(value, minimum), maximum)
 }
@@ -97,7 +98,7 @@ func indexInSlice(a string, list []string) int {
 	return -1
 }
 
-func GetIndices(errLog *log.Logger, headerLine []string) {
+func getIndices(errLog *log.Logger, headerLine []string) {
 	// initialize as invalid/empty
 
 	v := reflect.ValueOf(IndexConfig)
@@ -133,6 +134,7 @@ func GetIndices(errLog *log.Logger, headerLine []string) {
     }
 }
 
+// InitIndexConfig populates the chamber_tools.IndexConfig struct from a header line
 func InitIndexConfig(errLog *log.Logger, conditionsPath string ){
 
 	file, err := os.Open(conditionsPath)
@@ -197,10 +199,10 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 			if firstTime.Unix() <= 0 {
 				firstTime = theTime
 			}
-			data = append(data, line)
 			if theTime.After(firstTime.Add(time.Hour * 24)) {
 				break
 			}
+			data = append(data, line)	
 		}
 
 		errLog.Printf("looping over %d timepoints", len(data))
@@ -215,17 +217,23 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 				}
 
 				now := time.Now()
+				// get the 00 value for the current time
 				nowDate := now.Truncate(time.Hour * 24)
+				// get the 00:00 value for the first time in the dataset
 				firstDate := firstTime.Truncate(time.Hour * 24)
-				daysDifference := nowDate.Sub(firstDate) - (time.Hour*24)
+				// get the days difference. 
+				daysDifference := nowDate.Sub(firstDate)
 
+				// adjust theTime so that we can sleep until it later.
 				theTime = theTime.Add(daysDifference)
+
+				// check if theTime is Before
 				if theTime.Before(time.Now()) {
 					lastLineSplit = lineSplit
 					lastTime = theTime
 					continue
 				}
-
+				// run the last timepoint if its the first run.
 				if firstRun {
 					firstRun = false
 					errLog.Println("running firstrun line")
@@ -236,6 +244,7 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 					}
 				}
 
+				// we have reached
 				errLog.Printf("sleeping for %ds\n", int(time.Until(theTime).Seconds()))
 				time.Sleep(time.Until(theTime))
 
@@ -246,7 +255,6 @@ func RunConditions(errLog *log.Logger, runStuff func(time.Time, []string) bool, 
 					}
 				}
 				// end RUN STUFF
-				idx++
 
 			}
 		}
