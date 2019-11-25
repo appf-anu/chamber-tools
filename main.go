@@ -46,7 +46,7 @@ type TimePoint struct {
 	Datetime    time.Time
 	SimDatetime time.Time
 	Temperature float64
-	Humidity    float64
+	RelativeHumidity    float64
 	Light1      int
 	Light2      int
 	CO2         float64
@@ -408,7 +408,7 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 				errLog.Println("failed parsing float")
 				return nil, err
 			}
-			tp.Humidity= t
+			tp.RelativeHumidity = t
 		}
 		if i == IndexConfig.CO2Idx {
 			found := matchFloat.FindString(cell)
