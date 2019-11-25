@@ -63,11 +63,9 @@ var (
 
 const (
 	matchFloatExp = `[-+]?\d*\.\d+|\d+`
-	matchIntsExp  = `\b(\d+)\b`
 )
 
 var /* const */ matchFloat = regexp.MustCompile(matchFloatExp)
-var /* const */ matchInts = regexp.MustCompile(matchIntsExp)
 
 func init() {
 	ZoneName, zoneOffset = time.Now().Zone()
@@ -506,7 +504,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 			if err != nil{
 				return nil, err
 			}
-			tp.Humidity= t
+			tp.RelativeHumidity = t
 		}
 		if i == IndexConfig.CO2Idx {
 			t, err := cell.Float()
