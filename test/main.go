@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 	"os"
-
+	"strings"
 )
 
 var (
@@ -35,6 +35,14 @@ func init() {
 	var err error
 	errLog = log.New(os.Stderr, "[test] ", log.Ldate|log.Ltime|log.Lshortfile)
 
+	flag.BoolVar(&loopFirstDay, "loop", false, "loop over the first day")
+	if tempV := strings.ToLower(os.Getenv("LOOP")); tempV != "" {
+		if tempV == "true" || tempV == "1" {
+			loopFirstDay = true
+		} else {
+			loopFirstDay = false
+		}
+	}
 
 	flag.StringVar(&conditionsPath, "conditions", "", "conditions file to")
 	if tempV := os.Getenv("CONDITIONS_FILE"); tempV != "" {

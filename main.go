@@ -203,168 +203,6 @@ func InitIndexConfig(errLog *log.Logger, conditionsPath string) {
 	}
 }
 
-func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string, loopFirstDay bool){
-	InitIndexConfig(errLog, conditionsPath)
-	file, err := os.Open(conditionsPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	idx := 0
-	var lastLineSplit []string
-	firstRun := true
-
-	if loopFirstDay {
-
-		var firstTime time.Time
-		data := make([]string, 0)
-		for scanner.Scan() {
-			line := scanner.Text()
-			lineSplit := strings.Split(line, ",")
-			if idx == 0 {
-				idx++
-				continue
-			}
-
-			timeStr := lineSplit[IndexConfig.DatetimeIdx]
-			theTime, err := parseDateTime(timeStr, errLog)
-			if err != nil {
-				errLog.Println(err)
-				continue
-			}
-			if firstTime.Unix() <= 0 {
-				firstTime = theTime
-			}
-			if theTime.After(firstTime.Add(time.Hour * 24)) {
-				break
-			}
-			data = append(data, line)
-		}
-
-		errLog.Printf("looping over %d timepoints", len(data))
-		for {
-			for _, line := range data {
-				lineSplit := strings.Split(line, ",")
-				timeStr := lineSplit[0]
-				theTime, err := parseDateTime(timeStr, errLog)
-				if err != nil {
-					errLog.Println(err)
-					continue
-				}
-
-				now := time.Now()
-				// get the 00 value for the current time
-				nowDate := now.Truncate(time.Hour * 24)
-				// get the 00:00 value for the first time in the dataset
-				firstDate := firstTime.Truncate(time.Hour * 24)
-				// get the days difference.
-				daysDifference := nowDate.Sub(firstDate)
-
-				// adjust theTime so that we can sleep until it later.
-				theTime = theTime.Add(daysDifference)
-
-				// check if theTime is Before
-				if theTime.Before(time.Now()) {
-					lastLineSplit = lineSplit
-					continue
-				}
-				// run the last timepoint if its the first run.
-				if firstRun {
-					firstRun = false
-					errLog.Println("running firstrun line")
-					for i := 0; i < 10; i++ {
-						tp, err := NewTimePointFromStringArray(errLog, lastLineSplit)
-						if err != nil{
-							errLog.Println(err)
-							break
-						}
-						if runStuff(tp) {
-							break
-						}
-					}
-				}
-
-				// we have reached
-				errLog.Printf("sleeping for %ds\n", int(time.Until(theTime).Seconds()))
-				time.Sleep(time.Until(theTime))
-
-				// RUN STUFF HERE
-				for i := 0; i < 10; i++ {
-					tp, err := NewTimePointFromStringArray(errLog, lineSplit)
-					if err != nil{
-						errLog.Println(err)
-						break
-					}
-					if runStuff(tp) {
-						break
-					}
-				}
-				// end RUN STUFF
-
-			}
-		}
-
-	}
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		lineSplit := strings.Split(line, ",")
-		if idx == 0 {
-			idx++
-			continue
-		}
-
-		timeStr := lineSplit[IndexConfig.DatetimeIdx]
-		theTime, err := parseDateTime(timeStr, errLog)
-		if err != nil {
-			errLog.Println(err)
-			continue
-		}
-
-		// if we are before the time skip until we are after it
-		// the -10s means that we shouldnt run again.
-		if theTime.Before(time.Now()) {
-			lastLineSplit = lineSplit
-			continue
-		}
-
-		if firstRun {
-			firstRun = false
-			errLog.Println("running firstrun line")
-			for i := 0; i < 10; i++ {
-				tp, err := NewTimePointFromStringArray(errLog, lastLineSplit)
-				if err != nil{
-					errLog.Println(err)
-					break
-				}
-				if runStuff(tp) {
-					break
-				}
-			}
-		}
-
-		errLog.Printf("sleeping for %ds\n", int(time.Until(theTime).Seconds()))
-		time.Sleep(time.Until(theTime))
-
-		// RUN STUFF HERE
-		for i := 0; i < 10; i++ {
-			tp, err := NewTimePointFromStringArray(errLog, lineSplit)
-			if err != nil{
-				errLog.Println(err)
-				break
-			}
-			if runStuff(tp) {
-				break
-			}
-		}
-		// end RUN STUFF
-		idx++
-	}
-}
-
 func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, error) {
 	tp := &TimePoint{}
 	for i, cell := range row{
@@ -549,7 +387,202 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 
 }
 
-func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string, loopFirstDay bool){
+func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
+	InitIndexConfig(errLog, conditionsPath)
+	file, err := os.Open(conditionsPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	idx := 0
+	var lastLineSplit []string
+	firstRun := true
+
+
+	var firstTime time.Time
+	data := make([]string, 0)
+	for scanner.Scan() {
+		line := scanner.Text()
+		lineSplit := strings.Split(line, ",")
+		if idx == 0 {
+			idx++
+			continue
+		}
+
+		timeStr := lineSplit[IndexConfig.DatetimeIdx]
+		theTime, err := parseDateTime(timeStr, errLog)
+		if err != nil {
+			errLog.Println(err)
+			continue
+		}
+		if firstTime.Unix() <= 0 {
+			firstTime = theTime
+		}
+		if theTime.After(firstTime.Add(time.Hour * 24)) {
+			break
+		}
+		data = append(data, line)
+	}
+
+	errLog.Printf("looping over %d timepoints", len(data))
+	for {
+		for i, line := range data {
+			lineSplit := strings.Split(line, ",")
+			timeStr := lineSplit[0]
+			tempTime, err := parseDateTime(timeStr, errLog)
+			if err != nil {
+				errLog.Println(err)
+				continue
+			}
+
+			now := time.Now()
+
+			theTime := time.Date(
+				now.Year(),
+				now.Month(),
+				now.Day(),
+				tempTime.Hour(),
+				tempTime.Minute(),
+				tempTime.Second(),
+				tempTime.Nanosecond(),
+				time.Local)
+
+			if i == len(data)-1 { // end of data, set the next time to tomorrow
+				lastLineSplit = lineSplit
+				timeStr = strings.Split(data[0], ",")[0]
+				tempTime, err = parseDateTime(timeStr, errLog)
+				if err!= nil {
+					errLog.Println(err)
+					continue
+				}
+				theTime = time.Date(
+					now.Year(),
+					now.Month(),
+					now.Day(),
+					tempTime.Hour(),
+					tempTime.Minute(),
+					tempTime.Second(),
+					tempTime.Nanosecond(),
+					time.Local).Add(time.Hour*24)
+
+				errLog.Println("Reached end of data, set time to ", theTime)
+			}else{
+				// check if theTime is Before
+				if theTime.Before(time.Now()) {
+					lastLineSplit = lineSplit
+					continue
+				}
+			}
+
+			// run the last timepoint if its the first run.
+			if firstRun {
+				firstRun = false
+				errLog.Println("running firstrun line")
+				for i := 0; i < 10; i++ {
+					tp, err := NewTimePointFromStringArray(errLog, lastLineSplit)
+					if err != nil{
+						errLog.Println(err)
+						break
+					}
+					if runStuff(tp) {
+						break
+					}
+				}
+			}
+
+			// we have reached
+			errLog.Printf("sleeping for %s\n", time.Until(theTime).String())
+			time.Sleep(time.Until(theTime))
+
+			// RUN STUFF HERE
+			for i := 0; i < 10; i++ {
+				tp, err := NewTimePointFromStringArray(errLog, lineSplit)
+				if err != nil{
+					errLog.Println(err)
+					break
+				}
+				if runStuff(tp) {
+					break
+				}
+			}
+
+		}
+	}
+}
+
+func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
+	InitIndexConfig(errLog, conditionsPath)
+	file, err := os.Open(conditionsPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	idx := 0
+	var lastLineSplit []string
+	firstRun := true
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		lineSplit := strings.Split(line, ",")
+		if idx == 0 {
+			idx++
+			continue
+		}
+
+		timeStr := lineSplit[IndexConfig.DatetimeIdx]
+		theTime, err := parseDateTime(timeStr, errLog)
+		if err != nil {
+			errLog.Println(err)
+			continue
+		}
+
+		// if we are before the time skip until we are after it
+		// the -10s means that we shouldnt run again.
+		if theTime.Before(time.Now()) {
+			lastLineSplit = lineSplit
+			continue
+		}
+
+		if firstRun {
+			firstRun = false
+			errLog.Println("running firstrun line")
+			for i := 0; i < 10; i++ {
+				tp, err := NewTimePointFromStringArray(errLog, lastLineSplit)
+				if err != nil{
+					errLog.Println(err)
+					break
+				}
+				if runStuff(tp) {
+					break
+				}
+			}
+		}
+
+		errLog.Printf("sleeping for %s\n", time.Until(theTime).String())
+		time.Sleep(time.Until(theTime))
+
+		// RUN STUFF HERE
+		for i := 0; i < 10; i++ {
+			tp, err := NewTimePointFromStringArray(errLog, lineSplit)
+			if err != nil{
+				errLog.Println(err)
+				break
+			}
+			if runStuff(tp) {
+				break
+			}
+		}
+		// end RUN STUFF
+		idx++
+	}
+}
+
+func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
 	InitIndexConfig(errLog, conditionsPath)
 	xlFile, err := xlsx.OpenFile(conditionsPath)
 	if err != nil {
@@ -566,8 +599,6 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 	var lastRow *xlsx.Row
 	firstRun := true
 
-	if loopFirstDay {
-
 		var firstTime time.Time
 		data := make([]*xlsx.Row, 0)
 		for i, row := range sheet.Rows {
@@ -575,11 +606,11 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 				continue
 			}
 			tempTime, err := row.Cells[IndexConfig.DatetimeIdx].GetTime(false)
-
 			if err!= nil {
 				errLog.Println(err)
 				continue
 			}
+
 			theTime := time.Date(
 				tempTime.Year(),
 				tempTime.Month(),
@@ -589,7 +620,7 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 				tempTime.Second(),
 				tempTime.Nanosecond(),
 				time.Local)
-			if firstTime.Unix() <= 0 {
+			if firstTime.Unix() <= 0 { // check to see if firsttime has been set
 				firstTime = theTime
 			}
 			if theTime.After(firstTime.Add(time.Hour * 24)) {
@@ -600,39 +631,50 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 
 		errLog.Printf("looping over %d timepoints", len(data))
 		for {
-			for _, row := range data {
+			for i, row := range data {
 				tempTime, err := row.Cells[IndexConfig.DatetimeIdx].GetTime(false)
 				if err!= nil {
 					errLog.Println(err)
 					continue
 				}
+				now := time.Now()
+
 				theTime := time.Date(
-					tempTime.Year(),
-					tempTime.Month(),
-					tempTime.Day(),
+					now.Year(),
+					now.Month(),
+					now.Day(),
 					tempTime.Hour(),
 					tempTime.Minute(),
 					tempTime.Second(),
 					tempTime.Nanosecond(),
 					time.Local)
 
-
-				now := time.Now()
-				// get the 00 value for the current time
-				nowDate := now.Truncate(time.Hour * 24)
-				// get the 00:00 value for the first time in the dataset
-				firstDate := firstTime.Truncate(time.Hour * 24)
-				// get the days difference.
-				daysDifference := nowDate.Sub(firstDate)
-
-				// adjust theTime so that we can sleep until it later.
-				theTime = theTime.Add(daysDifference)
-
-				// check if theTime is Before
-				if theTime.Before(time.Now()) {
+				if i == len(data)-1 { // end of data, set the next time to tomorrow
 					lastRow = row
-					continue
+					tempTime, err = data[0].Cells[IndexConfig.DatetimeIdx].GetTime(false)
+					if err!= nil {
+						errLog.Println(err)
+						continue
+					}
+					theTime = time.Date(
+						now.Year(),
+						now.Month(),
+						now.Day(),
+						tempTime.Hour(),
+						tempTime.Minute(),
+						tempTime.Second(),
+						tempTime.Nanosecond(),
+						time.Local).Add(time.Hour*24)
+
+					errLog.Println("Reached end of data, set time to ", theTime)
+				}else{
+					// check if theTime is Before
+					if theTime.Before(time.Now()) {
+						lastRow = row
+						continue
+					}
 				}
+
 				// run the last timepoint if its the first run.
 				if firstRun {
 					firstRun = false
@@ -650,7 +692,7 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 				}
 
 				// we have reached sleeptime
-				errLog.Printf("sleeping for %ds\n", int(time.Until(theTime).Seconds()))
+				errLog.Printf("sleeping for %s\n", time.Until(theTime).String())
 				time.Sleep(time.Until(theTime))
 
 				// RUN STUFF HERE
@@ -668,8 +710,24 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 
 			}
 		}
+}
 
+func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
+	InitIndexConfig(errLog, conditionsPath)
+	xlFile, err := xlsx.OpenFile(conditionsPath)
+	if err != nil {
+		log.Fatal(err)
 	}
+	// excel files dont require closing?
+	//defer file.Close()
+	sheet, ok := xlFile.Sheet["timepoints"]
+	if !ok {
+		fmt.Println("no sheet named \"timepoints\" in xlsx file")
+		os.Exit(3)
+	}
+
+	var lastRow *xlsx.Row
+	firstRun := true
 
 	for i, row := range sheet.Rows {
 		if i == 0 {
@@ -714,11 +772,8 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 			}
 		}
 
-		errLog.Printf("sleeping for %ds\n", int(time.Until(theTime).Seconds()))
-		time.Sleep(time.Until(theTime))
-
 		// we have reached sleeptime
-		errLog.Printf("sleeping for %ds\n", int(time.Until(theTime).Seconds()))
+		errLog.Printf("sleeping for %s\n", time.Until(theTime).String())
 		time.Sleep(time.Until(theTime))
 
 		// RUN STUFF HERE
@@ -742,10 +797,16 @@ func RunConditions(errLog *log.Logger, runStuff func(point *TimePoint) bool, con
 	errLog.Printf("running conditions file: %s\n", conditionsPath)
 
 	if filepath.Ext(conditionsPath) == ".xlsx" {
-		runFromXlsx(errLog, runStuff, conditionsPath, loopFirstDay)
+		if loopFirstDay{
+			loopFromXlsx(errLog, runStuff, conditionsPath)
+		}
+		runFromXlsx(errLog, runStuff, conditionsPath)
 	}
 	if filepath.Ext(conditionsPath) == ".csv" {
-		runFromCsv(errLog, runStuff, conditionsPath, loopFirstDay)
+		if loopFirstDay {
+			loopFromCsv(errLog, runStuff, conditionsPath)
+		}
+		runFromCsv(errLog, runStuff, conditionsPath)
 	}
 
 }
