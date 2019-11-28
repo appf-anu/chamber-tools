@@ -697,7 +697,7 @@ func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, cond
 
 				// RUN STUFF HERE
 				for i := 0; i < 10; i++ {
-					tp, err := NewTimePointFromRow(errLog, lastRow)
+					tp, err := NewTimePointFromRow(errLog, row)
 					if err != nil{
 						errLog.Println(err)
 						break
@@ -750,7 +750,6 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 			time.Local)
 
 		// if we are before the time skip until we are after it
-		// the -10s means that we shouldnt run again.
 		if theTime.Before(time.Now()) {
 			lastRow = row
 			continue
