@@ -123,8 +123,10 @@ func indexInSlice(a string, list []string) int {
 func getIndices(errLog *log.Logger, headerLine []string) {
 	// initialize as invalid/empty
 
+
 	v := reflect.ValueOf(IndexConfig)
 	t := reflect.TypeOf(IndexConfig)
+
 	for i := 0; i < t.Elem().NumField(); i++ {
 		field := v.Elem().Field(i)
 		header, ok := t.Elem().Field(i).Tag.Lookup("header")
@@ -140,6 +142,7 @@ func getIndices(errLog *log.Logger, headerLine []string) {
 				}
 			}
 			if field.Kind() == reflect.Slice {
+				field.Set(reflect.Zero(field.Type()))
 				cIdx := 1 // start at channel 1
 				for {
 					cHeader := fmt.Sprintf(header, cIdx)
@@ -159,7 +162,6 @@ func getIndices(errLog *log.Logger, headerLine []string) {
 // InitIndexConfig populates the chamber_tools.IndexConfig struct from a header line
 func InitIndexConfig(errLog *log.Logger, conditionsPath string) {
 	if filepath.Ext(conditionsPath) == ".xlsx" {
-
 		xlFile, err := xlsx.OpenFile(conditionsPath)
 		sheet, ok := xlFile.Sheet["timepoints"]
 		if !ok {
