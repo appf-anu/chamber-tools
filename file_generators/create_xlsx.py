@@ -31,9 +31,10 @@ lights_headers = {
         "channel-5",
         "channel-6",
         "channel-7",
-        "channel-8"
-        "channel-9"
-        "channel-10"],
+        "channel-8",
+        "channel-9",
+        "channel-10"
+    ],
     "conviron": [
         "light1",
         "light2"
@@ -81,11 +82,11 @@ def generate(settings: dict):
 
     while start < end:
         temp = day_temp
-        if is_night(start):
+        if is_night(start, day_start=day_start, day_end=day_end):
             temp = night_temp
 
         channels = [100] * len(lights_headers[lights])
-        if is_night(start):
+        if is_night(start, day_start=day_start, day_end=day_end):
             channels = [0] * len(lights_headers[lights])
 
         # channels = [random.uniform(0, 100) for _ in range(8)]
@@ -113,6 +114,8 @@ settings = {
     "day_start": 7,
     "day_end": 23,
     "humidity": 55
+
+
 }
 
 settings['lights'] = "heliospectra_s10"
@@ -134,6 +137,50 @@ settings = {
     "night_temp": 20,
     "day_start": 7,
     "day_end": 17,
+    "humidity": 55
+}
+
+settings['lights'] = "heliospectra_s10"
+
+generate(settings)
+
+settings['lights'] = "heliospectra_s7"
+
+generate(settings)
+
+settings['lights'] = "psi"
+
+generate(settings)
+
+
+settings = {
+    "interval_m": 60,
+    "day_temp": 21,
+    "night_temp": 21,
+    "day_start": 9,
+    "day_end": 21,
+    "humidity": 55
+}
+
+settings['lights'] = "heliospectra_s10"
+
+generate(settings)
+
+settings['lights'] = "heliospectra_s7"
+
+generate(settings)
+
+settings['lights'] = "psi"
+
+generate(settings)
+
+
+settings = {
+    "interval_m": 10,
+    "day_temp": 21,
+    "night_temp": 21,
+    "day_start": 9,
+    "day_end": 21,
     "humidity": 55
 }
 
