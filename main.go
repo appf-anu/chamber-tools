@@ -63,6 +63,16 @@ type TimePoint struct {
 	Channels         []float64
 }
 
+
+func (tp TimePoint) NulledString() string{
+	repr := fmt.Sprintf("%+v", tp)
+	nullTargetFloatStr := fmt.Sprintf("%v", nullTargetFloat)
+	repr = strings.Replace(repr, nullTargetFloatStr,"NULL", -1)
+	nullTargetIntStr := fmt.Sprintf("%v", nullTargetInt)
+	repr = strings.Replace(repr, nullTargetIntStr,"NULL", -1)
+	return repr
+}
+
 var (
 	ctx fuzzytime.Context
 	// ZoneName exported so that packages that use this package can refer to the current timezone
@@ -325,7 +335,14 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 }
 
 func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) {
-	tp := &TimePoint{}
+	tp := &TimePoint{
+		Temperature     : nullTargetFloat,
+		RelativeHumidity :nullTargetFloat,
+		Light1           :nullTargetInt,
+		Light2           :nullTargetInt,
+		CO2              :nullTargetFloat,
+		TotalSolar       :nullTargetFloat,
+	}
 	for i, cell := range row.Cells {
 
 		if i == IndexConfig.DatetimeIdx {
