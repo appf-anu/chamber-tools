@@ -555,6 +555,8 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 						errLog.Println(err)
 						break
 					}
+					// print the point:
+					errLog.Printf("TimePoint: %s", tp.NulledString())
 					if runStuff(tp) {
 						break
 					}
@@ -572,6 +574,7 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 					errLog.Println(err)
 					break
 				}
+				errLog.Printf("TimePoint: %s", tp.NulledString())
 				if runStuff(tp) {
 					break
 				}
@@ -626,6 +629,7 @@ func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condit
 					errLog.Println(err)
 					break
 				}
+				errLog.Printf("TimePoint: %s", tp.NulledString())
 				if runStuff(tp) {
 					break
 				}
@@ -642,6 +646,7 @@ func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condit
 				errLog.Println(err)
 				break
 			}
+			errLog.Printf("TimePoint: %s", tp.NulledString())
 			if runStuff(tp) {
 				break
 			}
@@ -744,7 +749,7 @@ func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, cond
 					data[0].Datetime.Second(),
 					data[0].Datetime.Nanosecond(),
 					time.Local).Add(time.Hour * 24)
-				errLog.Printf("Reached end of data, looping from beginning. next timepoint at %v ", theTime)
+				errLog.Printf("Reached end of data, looping from beginning. next TimePoint at %v ", theTime)
 			} else {
 				// check if theTime is Before
 				if theTime.Before(time.Now()) {
@@ -759,6 +764,7 @@ func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, cond
 				firstRun = false
 				errLog.Printf("running initial TimePoint %05d/%05d", lastTpIdx, totalTimepoints)
 				for i := 0; i < 10; i++ {
+					errLog.Printf("TimePoint: %s", lastTp.NulledString())
 					if runStuff(lastTp) {
 						break
 					}
@@ -773,6 +779,7 @@ func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, cond
 			// RUN STUFF HERE
 			for try := 0; try < 10; try++ {
 				errLog.Printf("running TimePoint %05d/%05d", lastTpIdx, totalTimepoints)
+				errLog.Printf("TimePoint: %s", tp.NulledString())
 				if runStuff(tp) {
 					break
 				}
@@ -844,6 +851,7 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 					errLog.Println(err)
 					break
 				}
+				errLog.Printf("TimePoint: %s", tp.NulledString())
 				if runStuff(tp) {
 					break
 				}
@@ -861,6 +869,7 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 				errLog.Println(err)
 				break
 			}
+			errLog.Printf("TimePoint: %s", tp.NulledString())
 			if runStuff(tp) {
 				break
 			}
