@@ -30,13 +30,12 @@ type Indices struct {
 	ChannelsIdx    []int `header:"channel-%d"`
 }
 
-//noinspection GoSnakeCaseUsage
 const (
 	// it is extremely unlikely (see. impossible) that we will be measuring or sending a humidity of 214,748,365 %RH or
 	// a temperature of -340,282,346,638,528,859,811,704,183,484,516,925,440°C until we invent some new physics, so
 	// until then, I will use these values as the unset or null values for HumidityTarget and TemperatureTarget
-	NULLTARGET_INT     int     = math.MinInt32
-	NULLTARGET_FLOAT64 float64 = -math.MaxFloat32
+	NullTargetInt     int     = math.MinInt32
+	NullTargetFloat64 float64 = -math.MaxFloat32
 )
 
 // IndexConfig package level struct to store indices. -1 means it doesnt exist.
@@ -67,9 +66,9 @@ type TimePoint struct {
 
 func (tp TimePoint) NulledString() string{
 	repr := fmt.Sprintf("%+v", tp)
-	nullTargetFloatStr := fmt.Sprintf("%v", NULLTARGET_FLOAT64)
+	nullTargetFloatStr := fmt.Sprintf("%v", NullTargetFloat64)
 	repr = strings.Replace(repr, nullTargetFloatStr,"NULL", -1)
-	nullTargetIntStr := fmt.Sprintf("%v", NULLTARGET_INT)
+	nullTargetIntStr := fmt.Sprintf("%v", NullTargetInt)
 	repr = strings.Replace(repr, nullTargetIntStr,"NULL", -1)
 	return repr
 }
@@ -337,12 +336,12 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 
 func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) {
 	tp := &TimePoint{
-		Temperature     :  NULLTARGET_FLOAT64,
-		RelativeHumidity : NULLTARGET_FLOAT64,
-		Light1           : NULLTARGET_INT,
-		Light2           : NULLTARGET_INT,
-		CO2              : NULLTARGET_FLOAT64,
-		TotalSolar       : NULLTARGET_FLOAT64,
+		Temperature     :  NullTargetFloat64,
+		RelativeHumidity : NullTargetFloat64,
+		Light1           : NullTargetInt,
+		Light2           : NullTargetInt,
+		CO2              : NullTargetFloat64,
+		TotalSolar       : NullTargetFloat64,
 	}
 	for i, cell := range row.Cells {
 
@@ -364,7 +363,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		}
 		if i == IndexConfig.TemperatureIdx {
 			if cell.String() == "" || cell.String() == "NULL" {
-				tp.Temperature = NULLTARGET_FLOAT64
+				tp.Temperature = NullTargetFloat64
 				continue
 			}
 			t, err := cell.Float()
@@ -376,7 +375,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		}
 		if i == IndexConfig.HumidityIdx {
 			if cell.String() == "" || cell.String() == "NULL" {
-				tp.RelativeHumidity = NULLTARGET_FLOAT64
+				tp.RelativeHumidity = NullTargetFloat64
 				continue
 			}
 			t, err := cell.Float()
@@ -388,7 +387,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		}
 		if i == IndexConfig.CO2Idx {
 			if cell.String() == "" || cell.String() == "NULL" {
-				tp.CO2 = NULLTARGET_FLOAT64
+				tp.CO2 = NullTargetFloat64
 				continue
 			}
 			t, err := cell.Float()
@@ -400,7 +399,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		}
 		if i == IndexConfig.TotalSolarIdx {
 			if cell.String() == "" || cell.String() == "NULL" {
-				tp.TotalSolar = NULLTARGET_FLOAT64
+				tp.TotalSolar = NullTargetFloat64
 				continue
 			}
 			t, err := cell.Float()
@@ -413,7 +412,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		}
 		if i == IndexConfig.Light1Idx {
 			if cell.String() == "" || cell.String() == "NULL" {
-				tp.Light1 = NULLTARGET_INT
+				tp.Light1 = NullTargetInt
 				continue
 			}
 			t, err := cell.Int()
@@ -425,7 +424,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		}
 		if i == IndexConfig.Light2Idx {
 			if cell.String() == "" || cell.String() == "NULL" {
-				tp.Light2 = NULLTARGET_INT
+				tp.Light2 = NullTargetInt
 				continue
 			}
 
@@ -442,14 +441,14 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		cell := row.Cells[chanIdx]
 		// handle NULL targets
 		if cell.String() == "" || cell.String() == "NULL" {
-			tp.Channels = append(tp.Channels, NULLTARGET_FLOAT64)
+			tp.Channels = append(tp.Channels, NullTargetFloat64)
 			continue
 		}
 
 		chanValue, err := cell.Float()
 		// we still need to append a null target if we cant get the value
 		if err != nil {
-			tp.Channels = append(tp.Channels, NULLTARGET_FLOAT64)
+			tp.Channels = append(tp.Channels, NullTargetFloat64)
 			continue
 		}
 		tp.Channels = append(tp.Channels, chanValue)
