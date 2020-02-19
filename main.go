@@ -4,16 +4,17 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/bcampbell/fuzzytime"
+	"github.com/pkg/errors"
 	"github.com/tealeg/xlsx"
 	"log"
+	"math"
 	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
-	"path/filepath"
-	"strconv"
-	"regexp"
-	"github.com/pkg/errors"
 )
 
 // Indices type to store the column indexes of columns with specific headers denoted by "header" tags
@@ -29,6 +30,14 @@ type Indices struct {
 	ChannelsIdx    []int `header:"channel-%d"`
 }
 
+const (
+	// it is extremely unlikely (see. impossible) that we will be measuring or sending a humidity of 214,748,365 %RH or
+	// a temperature of -340,282,346,638,528,859,811,704,183,484,516,925,440°C until we invent some new physics, so
+	// until then, I will use these values as the unset or null values for HumidityTarget and TemperatureTarget
+	nullTargetInt   = math.MinInt32
+	nullTargetFloat = -math.MaxFloat32
+)
+
 // IndexConfig package level struct to store indices. -1 means it doesnt exist.
 var IndexConfig = &Indices{
 	-1,
@@ -43,15 +52,15 @@ var IndexConfig = &Indices{
 }
 
 type TimePoint struct {
-	Datetime    time.Time
-	SimDatetime time.Time
-	Temperature float64
-	RelativeHumidity    float64
-	Light1      int
-	Light2      int
-	CO2         float64
-	TotalSolar  float64
-	Channels    []float64
+	Datetime         time.Time
+	SimDatetime      time.Time
+	Temperature      float64
+	RelativeHumidity float64
+	Light1           int
+	Light2           int
+	CO2              float64
+	TotalSolar       float64
+	Channels         []float64
 }
 
 var (
@@ -79,7 +88,10 @@ func parseDateTime(tString string, errLog *log.Logger) (time.Time, error) {
 
 	datetimeValue, _, err := ctx.Extract(tString)
 	if err != nil {
-		errLog.Printf("couldn't extract datetime: %s", err)
+		errLog.Printf("xslx, tried to extract valid time object from this string \"%s\", error: %v",
+			tString, err)
+		errLog.Printf("couldn't extract datetime from xlsx file: %s\n", err)
+		return time.Time{}, err
 	}
 
 	datetimeValue.Time.SetHour(datetimeValue.Time.Hour())
@@ -123,7 +135,6 @@ func indexInSlice(a string, list []string) int {
 func getIndices(errLog *log.Logger, headerLine []string) {
 	// initialize as invalid/empty
 
-
 	v := reflect.ValueOf(IndexConfig)
 	t := reflect.TypeOf(IndexConfig)
 
@@ -163,14 +174,15 @@ func getIndices(errLog *log.Logger, headerLine []string) {
 func InitIndexConfig(errLog *log.Logger, conditionsPath string) {
 	if filepath.Ext(conditionsPath) == ".xlsx" {
 		xlFile, err := xlsx.OpenFile(conditionsPath)
+		if err != nil {
+			log.Fatal(err)
+		}
 		sheet, ok := xlFile.Sheet["timepoints"]
 		if !ok {
 			fmt.Println("no sheet named \"timepoints\" in xlsx file")
 			os.Exit(3)
 		}
-		if err != nil {
-			log.Fatal(err)
-		}
+
 		row := sheet.Row(0)
 
 		headers := make([]string, 0)
@@ -207,11 +219,11 @@ func InitIndexConfig(errLog *log.Logger, conditionsPath string) {
 
 func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, error) {
 	tp := &TimePoint{}
-	for i, cell := range row{
+	for i, cell := range row {
 
 		if i == IndexConfig.DatetimeIdx {
 			t, err := parseDateTime(cell, errLog)
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			tp.Datetime = t
@@ -243,7 +255,7 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 			}
 			t, err := strconv.ParseFloat(found, 64)
 			if err != nil {
-				errLog.Println("failed parsing float")
+				errLog.Println("failed parsing humidity float")
 				return nil, err
 			}
 			tp.RelativeHumidity = t
@@ -255,7 +267,7 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 			}
 			t, err := strconv.ParseFloat(found, 64)
 			if err != nil {
-				errLog.Println("failed parsing float")
+				errLog.Println("failed parsing CO2 float")
 				return nil, err
 			}
 			tp.CO2 = t
@@ -267,25 +279,25 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 			}
 			t, err := strconv.ParseFloat(found, 64)
 			if err != nil {
-				errLog.Println("failed parsing float")
+				errLog.Println("failed parsing TotalSolar float")
 				return nil, err
 			}
 			tp.TotalSolar = t
 		}
 		if i == IndexConfig.Light1Idx {
 			found := strings.TrimSpace(cell)
-			t, err := strconv.ParseInt(found,10, 64)
+			t, err := strconv.ParseInt(found, 10, 64)
 			if err != nil {
-				errLog.Println("failed parsing int")
+				errLog.Println("failed parsing Light1 int")
 				return nil, err
 			}
 			tp.Light1 = int(t)
 		}
 		if i == IndexConfig.Light2Idx {
 			found := strings.TrimSpace(cell)
-			t, err := strconv.ParseInt(found,10, 64)
+			t, err := strconv.ParseInt(found, 10, 64)
 			if err != nil {
-				errLog.Println("failed parsing int")
+				errLog.Println("failed parsing Light2 int")
 				return nil, err
 			}
 			tp.Light2 = int(t)
@@ -293,15 +305,15 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 	}
 	// do channels
 
-	for _, chanIdx := range IndexConfig.ChannelsIdx {
+	for chaNumber, chanIdx := range IndexConfig.ChannelsIdx {
 		v := row[chanIdx]
 		found := matchFloat.FindString(v)
 		if len(found) < 0 {
-			errLog.Printf("couldnt parse %s as float.\n", v)
+			errLog.Printf("couldnt parse channel-%d \"%s\" as a float\n", chaNumber+1, v)
 			continue
 		}
 		chanValue, err := strconv.ParseFloat(found, 64)
-		if err != nil{
+		if err != nil {
 			errLog.Println(err)
 			tp.Channels = append(tp.Channels, -1.0)
 			continue
@@ -314,11 +326,11 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 
 func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) {
 	tp := &TimePoint{}
-	for i, cell := range row.Cells{
+	for i, cell := range row.Cells {
 
 		if i == IndexConfig.DatetimeIdx {
 			t, err := cell.GetTime(false)
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			tp.Datetime = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(),
@@ -327,60 +339,99 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 		if i == IndexConfig.SimDatetimeIdx {
 			t, err := cell.GetTime(false)
 			if err != nil {
-				errLog.Println("Couldn't get SimDatetime")
+				errLog.Println("Couldn't get SimDatetime from row")
 				continue
 			}
 			tp.SimDatetime = t
 		}
 		if i == IndexConfig.TemperatureIdx {
+			if cell.String() == "" || cell.String() == "NULL" {
+				tp.Temperature = nullTargetFloat
+				continue
+			}
 			t, err := cell.Float()
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			tp.Temperature = t
+
 		}
 		if i == IndexConfig.HumidityIdx {
+			if cell.String() == "" || cell.String() == "NULL" {
+				tp.RelativeHumidity = nullTargetFloat
+				continue
+			}
 			t, err := cell.Float()
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			tp.RelativeHumidity = t
+
 		}
 		if i == IndexConfig.CO2Idx {
+			if cell.String() == "" || cell.String() == "NULL" {
+				tp.CO2 = nullTargetFloat
+				continue
+			}
 			t, err := cell.Float()
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			tp.CO2 = t
+
 		}
 		if i == IndexConfig.TotalSolarIdx {
+			if cell.String() == "" || cell.String() == "NULL" {
+				tp.TotalSolar = nullTargetFloat
+				continue
+			}
 			t, err := cell.Float()
-			if err != nil{
-				errLog.Println("Couldn't get TotalSolar")
+			if err != nil {
+				errLog.Println("Couldn't get TotalSolar from row")
 				continue
 			}
 			tp.TotalSolar = t
+
 		}
 		if i == IndexConfig.Light1Idx {
+			if cell.String() == "" || cell.String() == "NULL" {
+				tp.Light1 = nullTargetInt
+				continue
+			}
 			t, err := cell.Int()
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			tp.Light1 = t
+
 		}
 		if i == IndexConfig.Light2Idx {
+			if cell.String() == "" || cell.String() == "NULL" {
+				tp.Light2 = nullTargetInt
+				continue
+			}
+
 			t, err := cell.Int()
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			tp.Light2 = t
+
 		}
 	}
 	// do channels
 	for _, chanIdx := range IndexConfig.ChannelsIdx {
-		chanValue, err := row.Cells[chanIdx].Float()
-		if err != nil{
-			tp.Channels = append(tp.Channels, -1.0)
+		cell := row.Cells[chanIdx]
+		// handle NULL targets
+		if cell.String() == "" || cell.String() == "NULL" {
+			tp.Channels = append(tp.Channels, nullTargetFloat)
+			continue
+		}
+
+		chanValue, err := cell.Float()
+		// we still need to append a null target if we cant get the value
+		if err != nil {
+			tp.Channels = append(tp.Channels, nullTargetFloat)
 			continue
 		}
 		tp.Channels = append(tp.Channels, chanValue)
@@ -389,7 +440,7 @@ func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) 
 
 }
 
-func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
+func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string) {
 	InitIndexConfig(errLog, conditionsPath)
 	file, err := os.Open(conditionsPath)
 	if err != nil {
@@ -401,7 +452,6 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 	idx := 0
 	var lastLineSplit []string
 	firstRun := true
-
 
 	var firstTime time.Time
 	data := make([]string, 0)
@@ -455,7 +505,7 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 				lastLineSplit = lineSplit
 				timeStr = strings.Split(data[0], ",")[0]
 				tempTime, err = parseDateTime(timeStr, errLog)
-				if err!= nil {
+				if err != nil {
 					errLog.Println(err)
 					continue
 				}
@@ -467,10 +517,10 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 					tempTime.Minute(),
 					tempTime.Second(),
 					tempTime.Nanosecond(),
-					time.Local).Add(time.Hour*24)
+					time.Local).Add(time.Hour * 24)
 
 				errLog.Println("Reached end of data, set time to ", theTime)
-			}else{
+			} else {
 				// check if theTime is Before
 				if theTime.Before(time.Now()) {
 					lastLineSplit = lineSplit
@@ -484,7 +534,7 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 				errLog.Println("running firstrun line")
 				for i := 0; i < 10; i++ {
 					tp, err := NewTimePointFromStringArray(errLog, lastLineSplit)
-					if err != nil{
+					if err != nil {
 						errLog.Println(err)
 						break
 					}
@@ -501,7 +551,7 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 			// RUN STUFF HERE
 			for i := 0; i < 10; i++ {
 				tp, err := NewTimePointFromStringArray(errLog, lineSplit)
-				if err != nil{
+				if err != nil {
 					errLog.Println(err)
 					break
 				}
@@ -514,7 +564,7 @@ func loopFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 	}
 }
 
-func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
+func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string) {
 	InitIndexConfig(errLog, conditionsPath)
 	file, err := os.Open(conditionsPath)
 	if err != nil {
@@ -555,7 +605,7 @@ func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condit
 			errLog.Println("running firstrun line")
 			for i := 0; i < 10; i++ {
 				tp, err := NewTimePointFromStringArray(errLog, lastLineSplit)
-				if err != nil{
+				if err != nil {
 					errLog.Println(err)
 					break
 				}
@@ -571,7 +621,7 @@ func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condit
 		// RUN STUFF HERE
 		for i := 0; i < 10; i++ {
 			tp, err := NewTimePointFromStringArray(errLog, lineSplit)
-			if err != nil{
+			if err != nil {
 				errLog.Println(err)
 				break
 			}
@@ -584,7 +634,7 @@ func runFromCsv(errLog *log.Logger, runStuff func(point *TimePoint) bool, condit
 	}
 }
 
-func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
+func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string) {
 	InitIndexConfig(errLog, conditionsPath)
 	xlFile, err := xlsx.OpenFile(conditionsPath)
 	if err != nil {
@@ -598,123 +648,124 @@ func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, cond
 		os.Exit(3)
 	}
 
-	var lastRow *xlsx.Row
+	var lastTp *TimePoint
+	var lastTpIdx int
 	firstRun := true
 
-		var firstTime time.Time
-		data := make([]*xlsx.Row, 0)
-		for i, row := range sheet.Rows {
-			if i == 0 {
-				continue
-			}
-			tempTime, err := row.Cells[IndexConfig.DatetimeIdx].GetTime(false)
-			if err!= nil {
-				errLog.Println(err)
-				continue
-			}
-
-			theTime := time.Date(
-				tempTime.Year(),
-				tempTime.Month(),
-				tempTime.Day(),
-				tempTime.Hour(),
-				tempTime.Minute(),
-				tempTime.Second(),
-				tempTime.Nanosecond(),
-				time.Local)
-			if firstTime.Unix() <= 0 { // check to see if firsttime has been set
-				firstTime = theTime
-			}
-			if theTime.After(firstTime.Add(time.Hour * 24)) {
-				break
-			}
-			data = append(data, row)
+	var firstTime time.Time
+	data := make([]*TimePoint, 0)
+	for i, row := range sheet.Rows {
+		if i == 0 {
+			continue
+		}
+		// skip rows with less than 2 cells
+		if len(row.Cells) < 2 {
+			errLog.Printf("row %05d has less than 2 cells", i)
+			continue
+		}
+		if row.Cells[IndexConfig.DatetimeIdx].String() == "" {
+			errLog.Printf("row %05d has empty datetime cell", i)
+			continue
 		}
 
-		errLog.Printf("looping over %d timepoints", len(data))
-		for {
-			for i, row := range data {
-				tempTime, err := row.Cells[IndexConfig.DatetimeIdx].GetTime(false)
-				if err!= nil {
-					errLog.Println(err)
-					continue
-				}
-				now := time.Now()
+		tempTime, err := row.Cells[IndexConfig.DatetimeIdx].GetTime(false)
+		if err != nil {
+			errLog.Printf("error while extracting time value for row %d, %v", i, err)
+			continue
+		}
+		theTime := time.Date(
+			tempTime.Year(),
+			tempTime.Month(),
+			tempTime.Day(),
+			tempTime.Hour(),
+			tempTime.Minute(),
+			tempTime.Second(),
+			tempTime.Nanosecond(),
+			time.Local)
+		if firstTime.Unix() <= 0 { // check to see if firsttime has been set
+			firstTime = theTime
+		}
+		if theTime.After(firstTime.Add(time.Hour * 24)) {
+			break
+		}
+		tp, err := NewTimePointFromRow(errLog, row)
+		if err != nil {
+			errLog.Printf(" Error adding timepoint to loop data: %v", err)
+			continue
+		}
+		data = append(data, tp)
+	}
 
-				theTime := time.Date(
+	totalTimepoints := len(data)-1
+	errLog.Printf("looping over %d timepoints", totalTimepoints)
+	for {
+		for i, tp := range data {
+			thisTpIdx := i
+			now := time.Now()
+
+			theTime := time.Date(
+				now.Year(),
+				now.Month(),
+				now.Day(),
+				tp.Datetime.Hour(),
+				tp.Datetime.Minute(),
+				tp.Datetime.Second(),
+				tp.Datetime.Nanosecond(),
+				time.Local)
+
+
+			if i == len(data)-1 { // end of data, set the next time to tomorrow
+				lastTp = tp
+				lastTpIdx = i
+				thisTpIdx = 0
+				theTime = time.Date(
 					now.Year(),
 					now.Month(),
 					now.Day(),
-					tempTime.Hour(),
-					tempTime.Minute(),
-					tempTime.Second(),
-					tempTime.Nanosecond(),
-					time.Local)
-
-				if i == len(data)-1 { // end of data, set the next time to tomorrow
-					lastRow = row
-					tempTime, err = data[0].Cells[IndexConfig.DatetimeIdx].GetTime(false)
-					if err!= nil {
-						errLog.Println(err)
-						continue
-					}
-					theTime = time.Date(
-						now.Year(),
-						now.Month(),
-						now.Day(),
-						tempTime.Hour(),
-						tempTime.Minute(),
-						tempTime.Second(),
-						tempTime.Nanosecond(),
-						time.Local).Add(time.Hour*24)
-
-					errLog.Println("Reached end of data, set time to ", theTime)
-				}else{
-					// check if theTime is Before
-					if theTime.Before(time.Now()) {
-						lastRow = row
-						continue
-					}
+					data[0].Datetime.Hour(),
+					data[0].Datetime.Minute(),
+					data[0].Datetime.Second(),
+					data[0].Datetime.Nanosecond(),
+					time.Local).Add(time.Hour * 24)
+				errLog.Printf("Reached end of data, looping from beginning. next timepoint at %v ", theTime)
+			} else {
+				// check if theTime is Before
+				if theTime.Before(time.Now()) {
+					lastTp = tp
+					lastTpIdx = i
+					continue
 				}
-
-				// run the last timepoint if its the first run.
-				if firstRun {
-					firstRun = false
-					errLog.Println("running firstrun line")
-					for i := 0; i < 10; i++ {
-						tp, err := NewTimePointFromRow(errLog, lastRow)
-						if err != nil{
-							errLog.Println(err)
-							break
-						}
-						if runStuff(tp) {
-							break
-						}
-					}
-				}
-
-				// we have reached sleeptime
-				errLog.Printf("sleeping for %s\n", time.Until(theTime).String())
-				time.Sleep(time.Until(theTime))
-
-				// RUN STUFF HERE
-				for i := 0; i < 10; i++ {
-					tp, err := NewTimePointFromRow(errLog, row)
-					if err != nil{
-						errLog.Println(err)
-						break
-					}
-					if runStuff(tp) {
-						break
-					}
-				}
-				// end RUN STUFF
-
 			}
+
+			// run the last timepoint if its the first run.
+			if firstRun {
+				firstRun = false
+				errLog.Printf("running initial TimePoint %05d/%05d", lastTpIdx, totalTimepoints)
+				for i := 0; i < 10; i++ {
+					if runStuff(lastTp) {
+						break
+					}
+				}
+			}
+
+			// we have reached sleeptime
+			errLog.Printf("sleeping for %s until TimePoint %05d/%05d at %v",
+				time.Until(theTime).String(), thisTpIdx, totalTimepoints, tp.Datetime)
+			time.Sleep(time.Until(theTime))
+
+			// RUN STUFF HERE
+			for try := 0; try < 10; try++ {
+				errLog.Printf("running TimePoint %05d/%05d", lastTpIdx, totalTimepoints)
+				if runStuff(tp) {
+					break
+				}
+			}
+			// end RUN STUFF
 		}
+	}
 }
 
-func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string){
+func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, conditionsPath string) {
 	InitIndexConfig(errLog, conditionsPath)
 	xlFile, err := xlsx.OpenFile(conditionsPath)
 	if err != nil {
@@ -735,10 +786,19 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 		if i == 0 {
 			continue
 		}
+		// skip rows with less than 2 cells
+		if len(row.Cells) < 2 {
+			errLog.Printf("row %05d has less than 2 cells", i)
+			continue
+		}
+		if row.Cells[IndexConfig.DatetimeIdx].String() == "" {
+			errLog.Printf("row %05d has empty datetime cell", i)
+			continue
+		}
 		tempTime, err := row.Cells[IndexConfig.DatetimeIdx].GetTime(false)
 
-		if err!= nil {
-			errLog.Println(err)
+		if err != nil {
+			errLog.Printf("error while extracting time value for row %d, %v", i, err)
 			continue
 		}
 		theTime := time.Date(
@@ -763,7 +823,7 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 			errLog.Println("running firstrun line")
 			for i := 0; i < 10; i++ {
 				tp, err := NewTimePointFromRow(errLog, lastRow)
-				if err != nil{
+				if err != nil {
 					errLog.Println(err)
 					break
 				}
@@ -780,7 +840,7 @@ func runFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, condi
 		// RUN STUFF HERE
 		for i := 0; i < 10; i++ {
 			tp, err := NewTimePointFromRow(errLog, row)
-			if err != nil{
+			if err != nil {
 				errLog.Println(err)
 				break
 			}
@@ -798,7 +858,7 @@ func RunConditions(errLog *log.Logger, runStuff func(point *TimePoint) bool, con
 	errLog.Printf("running conditions file: %s\n", conditionsPath)
 
 	if filepath.Ext(conditionsPath) == ".xlsx" {
-		if loopFirstDay{
+		if loopFirstDay {
 			loopFromXlsx(errLog, runStuff, conditionsPath)
 		}
 		runFromXlsx(errLog, runStuff, conditionsPath)
