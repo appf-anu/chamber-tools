@@ -1,4 +1,8 @@
+file_generators/conditions/*.xlsx
+*/conditions/*.xlsx
+*/conditions/*.xlsx*
 proprietary_docs
+test/test
 .idea
 
 # Binaries for programs and plugins

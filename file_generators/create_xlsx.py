@@ -195,3 +195,17 @@ generate(settings)
 settings['lights'] = "psi"
 
 generate(settings)
+
+
+settings = {
+    "interval_m": 0.1,
+    "day_temp": 28,
+    "night_temp": 20,
+    "day_start": 7,
+    "day_end": 17,
+    "humidity": 55
+}
+
+settings['lights'] = "conviron"
+
+generate(settings)
