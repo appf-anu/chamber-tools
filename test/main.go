@@ -26,7 +26,7 @@ var (
 // runStuff, should send values and write metrics.
 // returns true if program should continue, false if program should retry
 func runStuff(point *chamber_tools.TimePoint) bool {
-	errLog.Printf("%+v\n", point)
+	errLog.Printf("%+v\n", point.NulledString())
 	return true
 }
 
