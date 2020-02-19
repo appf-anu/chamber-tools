@@ -30,13 +30,12 @@ type Indices struct {
 	ChannelsIdx    []int `header:"channel-%d"`
 }
 
-const (
-	// it is extremely unlikely (see. impossible) that we will be measuring or sending a humidity of 214,748,365 %RH or
-	// a temperature of -340,282,346,638,528,859,811,704,183,484,516,925,440°C until we invent some new physics, so
-	// until then, I will use these values as the unset or null values for HumidityTarget and TemperatureTarget
-	NullTargetInt     int     = math.MinInt32
-	NullTargetFloat64 float64 = -math.MaxFloat32
-)
+// it is extremely unlikely (see. impossible) that we will be measuring or sending a humidity of 214,748,365 %RH or
+// a temperature of -340,282,346,638,528,859,811,704,183,484,516,925,440°C until we invent some new physics, so
+// until then, I will use these values as the unset or null values for HumidityTarget and TemperatureTarget
+const	NullTargetInt     int     = math.MinInt32
+const	NullTargetFloat64 float64 = -math.MaxFloat32
+
 
 // IndexConfig package level struct to store indices. -1 means it doesnt exist.
 var IndexConfig = &Indices{
