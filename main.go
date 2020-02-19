@@ -33,7 +33,11 @@ type Indices struct {
 // it is extremely unlikely (see. impossible) that we will be measuring or sending a humidity of 214,748,365 %RH or
 // a temperature of -340,282,346,638,528,859,811,704,183,484,516,925,440°C until we invent some new physics, so
 // until then, I will use these values as the unset or null values for HumidityTarget and TemperatureTarget
+// NullTargetInt exported see above
 const	NullTargetInt     int     = math.MinInt32
+// NullTargetInt64 exported see above
+const	NullTargetInt64   int64     = math.MinInt64
+// NullTargetFloat64 exported see above
 const	NullTargetFloat64 float64 = -math.MaxFloat32
 
 
