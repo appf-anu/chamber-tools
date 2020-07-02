@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/bcampbell/fuzzytime"
+	"github.com/mdaffin/go-telegraf"
 	"github.com/pkg/errors"
 	"github.com/tealeg/xlsx"
 	"log"
@@ -181,6 +182,78 @@ func getIndices(errLog *log.Logger, headerLine []string) {
 					break
 				}
 			}
+		}
+	}
+}
+
+
+// DecodeStructFieldToMeasurement turns a field of a struct into a measurement field and adds it to the measurment.
+// doesnt support nested structs or maps, yet
+func DecodeStructFieldToMeasurement(m *telegraf.Measurement, va reflect.Value, i int) {
+	f := va.Field(i)
+	fi := f.Interface()
+	n := va.Type().Field(i).Name
+
+	switch v := fi.(type) {
+	case int64:
+		if v == NullTargetInt64 {
+			break
+		}
+		m.AddInt64(n, v)
+	case int32:
+		m.AddInt32(n, v)
+	case int:
+		if v == NullTargetInt {
+			break
+		}
+		m.AddInt(n, v)
+	case float64:
+		if v == NullTargetFloat64 {
+			break
+		}
+		m.AddFloat64(n, v)
+	case string:
+		m.AddString(n, v)
+	case bool:
+		m.AddBool(n, v)
+	case []int64:
+		for i, iv := range v {
+			if iv == NullTargetInt64{
+				continue
+			}
+			m.AddInt64(fmt.Sprintf("%s-%02d", n, i+1), iv)
+		}
+	case []int32:
+		for i, iv := range v {
+			if iv == NullTargetInt32{
+				continue
+			}
+			m.AddInt32(fmt.Sprintf("%s-%02d", n, i+1), iv)
+		}
+	case []int:
+		for i, iv := range v {
+			if iv == NullTargetInt {
+				continue
+			}
+			m.AddInt(fmt.Sprintf("%s-%02d", n, i+1), iv)
+		}
+	case []float64:
+		for i, iv := range v {
+			if iv == NullTargetFloat64 {
+				continue
+			}
+			m.AddFloat64(fmt.Sprintf("%s-%02d", n, i+1), iv)
+		}
+	case []string:
+		for i, iv := range v {
+			if iv == "" {
+				continue
+			}
+			m.AddString(fmt.Sprintf("%s-%02d", n, i+1), iv)
+		}
+	case []bool:
+		for i, iv := range v {
+			m.AddBool(fmt.Sprintf("%s-%02d", n, i+1), iv)
 		}
 	}
 }
