@@ -35,6 +35,8 @@ type Indices struct {
 // until then, I will use these values as the unset or null values for HumidityTarget and TemperatureTarget
 // NullTargetInt exported see above
 const	NullTargetInt     int     = math.MinInt32
+// NullTargetInt32 exported see above
+const   NullTargetInt32	  int32   = math.MinInt32
 // NullTargetInt64 exported see above
 const	NullTargetInt64   int64     = math.MinInt64
 // NullTargetFloat64 exported see above
