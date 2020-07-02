@@ -35,14 +35,16 @@ type Indices struct {
 // a temperature of -340,282,346,638,528,859,811,704,183,484,516,925,440°C until we invent some new physics, so
 // until then, I will use these values as the unset or null values for HumidityTarget and TemperatureTarget
 // NullTargetInt exported see above
-const	NullTargetInt     int     = math.MinInt32
-// NullTargetInt32 exported see above
-const   NullTargetInt32	  int32   = math.MinInt32
-// NullTargetInt64 exported see above
-const	NullTargetInt64   int64     = math.MinInt64
-// NullTargetFloat64 exported see above
-const	NullTargetFloat64 float64 = -math.MaxFloat32
+const NullTargetInt int = math.MinInt32
 
+// NullTargetInt32 exported see above
+const NullTargetInt32 int32 = math.MinInt32
+
+// NullTargetInt64 exported see above
+const NullTargetInt64 int64 = math.MinInt64
+
+// NullTargetFloat64 exported see above
+const NullTargetFloat64 float64 = -math.MaxFloat32
 
 // IndexConfig package level struct to store indices. -1 means it doesnt exist.
 var IndexConfig = &Indices{
@@ -69,13 +71,12 @@ type TimePoint struct {
 	Channels         []float64
 }
 
-
-func (tp TimePoint) NulledString() string{
+func (tp TimePoint) NulledString() string {
 	repr := fmt.Sprintf("%+v", tp)
 	nullTargetFloatStr := fmt.Sprintf("%v", NullTargetFloat64)
-	repr = strings.Replace(repr, nullTargetFloatStr,"NULL", -1)
+	repr = strings.Replace(repr, nullTargetFloatStr, "NULL", -1)
 	nullTargetIntStr := fmt.Sprintf("%v", NullTargetInt)
-	repr = strings.Replace(repr, nullTargetIntStr,"NULL", -1)
+	repr = strings.Replace(repr, nullTargetIntStr, "NULL", -1)
 	return repr
 }
 
@@ -186,7 +187,6 @@ func getIndices(errLog *log.Logger, headerLine []string) {
 	}
 }
 
-
 // DecodeStructFieldToMeasurement turns a field of a struct into a measurement field and adds it to the measurment.
 // doesnt support nested structs or maps, yet
 func DecodeStructFieldToMeasurement(m *telegraf.Measurement, va reflect.Value, i int) {
@@ -218,14 +218,14 @@ func DecodeStructFieldToMeasurement(m *telegraf.Measurement, va reflect.Value, i
 		m.AddBool(n, v)
 	case []int64:
 		for i, iv := range v {
-			if iv == NullTargetInt64{
+			if iv == NullTargetInt64 {
 				continue
 			}
 			m.AddInt64(fmt.Sprintf("%s-%02d", n, i+1), iv)
 		}
 	case []int32:
 		for i, iv := range v {
-			if iv == NullTargetInt32{
+			if iv == NullTargetInt32 {
 				continue
 			}
 			m.AddInt32(fmt.Sprintf("%s-%02d", n, i+1), iv)
@@ -414,12 +414,12 @@ func NewTimePointFromStringArray(errLog *log.Logger, row []string) (*TimePoint, 
 
 func NewTimePointFromRow(errLog *log.Logger, row *xlsx.Row) (*TimePoint, error) {
 	tp := &TimePoint{
-		Temperature     :  NullTargetFloat64,
-		RelativeHumidity : NullTargetFloat64,
-		Light1           : NullTargetInt,
-		Light2           : NullTargetInt,
-		CO2              : NullTargetFloat64,
-		TotalSolar       : NullTargetFloat64,
+		Temperature:      NullTargetFloat64,
+		RelativeHumidity: NullTargetFloat64,
+		Light1:           NullTargetInt,
+		Light2:           NullTargetInt,
+		CO2:              NullTargetFloat64,
+		TotalSolar:       NullTargetFloat64,
 	}
 	for i, cell := range row.Cells {
 
@@ -796,7 +796,7 @@ func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, cond
 		data = append(data, tp)
 	}
 
-	totalTimepoints := len(data)-1
+	totalTimepoints := len(data) - 1
 	errLog.Printf("looping over %d timepoints", totalTimepoints)
 	for {
 		for i, tp := range data {
@@ -812,7 +812,6 @@ func loopFromXlsx(errLog *log.Logger, runStuff func(point *TimePoint) bool, cond
 				tp.Datetime.Second(),
 				tp.Datetime.Nanosecond(),
 				time.Local)
-
 
 			if i == len(data)-1 { // end of data, set the next time to tomorrow
 				lastTp = tp

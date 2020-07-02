@@ -4,9 +4,9 @@ import (
 	"flag"
 	"github.com/appf-anu/chamber-tools"
 	"log"
-	"time"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -14,14 +14,12 @@ var (
 )
 
 var (
-	loopFirstDay            				  bool
-	useLight1, useLight2, usehttp             bool
-	address                                   string
-	conditionsPath, hostTag, groupTag, didTag string
-	interval                                  time.Duration
+	loopFirstDay                      bool
+	useLight1, useLight2              bool
+	address                           string
+	conditionsPath, hostTag, groupTag string
+	interval                          time.Duration
 )
-
-
 
 // runStuff, should send values and write metrics.
 // returns true if program should continue, false if program should retry
@@ -61,7 +59,7 @@ func init() {
 	if conditionsPath != "" {
 		chamber_tools.InitIndexConfig(errLog, conditionsPath)
 		if chamber_tools.IndexConfig.TemperatureIdx == -1 || chamber_tools.IndexConfig.HumidityIdx == -1 {
-			errLog.Println("No temperature or humidity headers found in conditions file" )
+			errLog.Println("No temperature or humidity headers found in conditions file")
 		}
 	}
 	errLog.Printf("loopFirstDay: \t%s\n", loopFirstDay)
@@ -78,7 +76,7 @@ func init() {
 
 func main() {
 
-	if conditionsPath != ""{
+	if conditionsPath != "" {
 		chamber_tools.RunConditions(errLog, runStuff, conditionsPath, loopFirstDay)
 	}
 
